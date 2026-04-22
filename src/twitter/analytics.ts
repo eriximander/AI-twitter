@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { getTwitterClient } from "./client.js";
+import { getAuthenticatedClient } from "./client.js";
 import { createPostQueries } from "../db/queries.js";
 import type { Post } from "../db/queries.js";
 
@@ -15,7 +15,7 @@ interface DailyStatsRow {
 }
 
 export async function updateTweetMetrics(db: Database.Database): Promise<number> {
-  const client = getTwitterClient();
+  const client = await getAuthenticatedClient();
   const postQ = createPostQueries(db);
 
   const posted = db

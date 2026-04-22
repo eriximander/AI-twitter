@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { getTwitterClient } from "./client.js";
+import { getAuthenticatedClient } from "./client.js";
 import { monitorKeywords, targetAccounts } from "../config/targets.js";
 import { createReplyQueries } from "../db/queries.js";
 import { generateReplyDraft } from "../content/generator.js";
@@ -17,7 +17,7 @@ const userIdCache = new Map<string, string>();
 export async function searchKeywordTweets(
   maxResults = 10,
 ): Promise<MonitoredTweet[]> {
-  const client = getTwitterClient();
+  const client = await getAuthenticatedClient();
 
   if (monitorKeywords.length === 0) return [];
 
@@ -51,7 +51,7 @@ export async function searchKeywordTweets(
 }
 
 export async function fetchTargetAccountTweets(): Promise<MonitoredTweet[]> {
-  const client = getTwitterClient();
+  const client = await getAuthenticatedClient();
   const tweets: MonitoredTweet[] = [];
 
   for (const target of targetAccounts) {

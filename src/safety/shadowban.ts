@@ -1,4 +1,4 @@
-import { getTwitterClient } from "../twitter/client.js";
+import { getAuthenticatedClient } from "../twitter/client.js";
 
 export interface ShadowbanCheckResult {
   suspected: boolean;
@@ -6,7 +6,7 @@ export interface ShadowbanCheckResult {
 }
 
 export async function checkShadowban(username: string): Promise<ShadowbanCheckResult> {
-  const client = getTwitterClient();
+  const client = await getAuthenticatedClient();
   const indicators: string[] = [];
 
   try {

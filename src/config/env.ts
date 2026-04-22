@@ -14,8 +14,8 @@ function optional(key: string, fallback: string): string {
 
 export const env = {
   x: {
-    appKey: required("X_APP_KEY"),
-    appSecret: required("X_APP_SECRET"),
+    apiKey: required("X_API_KEY"),
+    apiSecret: required("X_API_SECRET"),
     accessToken: required("X_ACCESS_TOKEN"),
     accessSecret: required("X_ACCESS_SECRET"),
   },

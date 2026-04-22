@@ -1,4 +1,4 @@
-import { getReadWriteClient } from "./client.js";
+import { getAuthenticatedClient } from "./client.js";
 
 export interface PostResult {
   success: boolean;
@@ -8,7 +8,7 @@ export interface PostResult {
 
 export async function postTweet(content: string): Promise<PostResult> {
   try {
-    const client = getReadWriteClient();
+    const client = await getAuthenticatedClient();
     const result = await client.v2.tweet(content);
     return {
       success: true,
@@ -25,7 +25,7 @@ export async function postReply(
   replyToId: string,
 ): Promise<PostResult> {
   try {
-    const client = getReadWriteClient();
+    const client = await getAuthenticatedClient();
     const result = await client.v2.reply(content, replyToId);
     return {
       success: true,
