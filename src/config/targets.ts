@@ -13,6 +13,9 @@ export const monitorKeywords = [
 ];
 
 export const targetAccounts: ReplyTarget[] = [
-  // Phase 0で競合分析後に追加する
-  // { username: "example_account", reason: "AI副業系インフルエンサー" },
+  { username: "ai_and_and", reason: "AI副業・AI活用情報発信" },
+  { username: "and_and_and_and", reason: "AI×マーケティング" },
+  { username: "masahirochaen", reason: "ChatGPT活用術" },
+  { username: "and_and_and_and", reason: "AI副業実践者" },
+  { username: "shota7180", reason: "AIツールレビュー" },
 ];
