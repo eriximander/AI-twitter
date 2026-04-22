@@ -4,6 +4,7 @@ import { monitorKeywords, targetAccounts } from "../config/targets.js";
 import { createReplyQueries } from "../db/queries.js";
 import { generateReplyDraft } from "../content/generator.js";
 import { checkReplyRateLimit } from "../safety/rate-limiter.js";
+import { logApiUsage } from "../safety/cost-tracker.js";
 
 export interface MonitoredTweet {
   id: string;
@@ -11,36 +12,42 @@ export interface MonitoredTweet {
   content: string;
 }
 
+const userIdCache = new Map<string, string>();
+
 export async function searchKeywordTweets(
   maxResults = 10,
 ): Promise<MonitoredTweet[]> {
   const client = getTwitterClient();
-  const tweets: MonitoredTweet[] = [];
 
-  for (const keyword of monitorKeywords) {
-    try {
-      const result = await client.v2.search(keyword, {
-        max_results: maxResults,
-        "tweet.fields": ["author_id", "text"],
-        expansions: ["author_id"],
+  if (monitorKeywords.length === 0) return [];
+
+  const query = monitorKeywords
+    .map((kw) => (kw.includes(" ") ? `"${kw}"` : kw))
+    .join(" OR ");
+
+  try {
+    const result = await client.v2.search(query, {
+      max_results: maxResults,
+      "tweet.fields": ["author_id", "text"],
+      expansions: ["author_id"],
+    });
+
+    const tweets: MonitoredTweet[] = [];
+    for (const tweet of result.data?.data ?? []) {
+      const author = result.includes?.users?.find(
+        (u) => u.id === tweet.author_id,
+      );
+      tweets.push({
+        id: tweet.id,
+        username: author?.username ?? "unknown",
+        content: tweet.text,
       });
-
-      for (const tweet of result.data?.data ?? []) {
-        const author = result.includes?.users?.find(
-          (u) => u.id === tweet.author_id,
-        );
-        tweets.push({
-          id: tweet.id,
-          username: author?.username ?? "unknown",
-          content: tweet.text,
-        });
-      }
-    } catch {
-      console.error(`キーワード「${keyword}」の検索に失敗`);
     }
+    return tweets;
+  } catch {
+    console.error("キーワード検索に失敗");
+    return [];
   }
-
-  return tweets;
 }
 
 export async function fetchTargetAccountTweets(): Promise<MonitoredTweet[]> {
@@ -49,10 +56,15 @@ export async function fetchTargetAccountTweets(): Promise<MonitoredTweet[]> {
 
   for (const target of targetAccounts) {
     try {
-      const user = await client.v2.userByUsername(target.username);
-      if (!user.data) continue;
+      let userId = userIdCache.get(target.username);
+      if (!userId) {
+        const user = await client.v2.userByUsername(target.username);
+        if (!user.data) continue;
+        userId = user.data.id;
+        userIdCache.set(target.username, userId);
+      }
 
-      const timeline = await client.v2.userTimeline(user.data.id, {
+      const timeline = await client.v2.userTimeline(userId, {
         max_results: 5,
         "tweet.fields": ["created_at"],
       });
@@ -85,13 +97,14 @@ export async function monitorAndDraft(db: Database.Database): Promise<number> {
 
   for (const tweet of tweets.slice(0, 3)) {
     try {
-      const draft = await generateReplyDraft(tweet.username, tweet.content);
+      const result = await generateReplyDraft(tweet.username, tweet.content);
       replyQ.insert.run({
         targetTweetId: tweet.id,
         targetUsername: tweet.username,
         targetContent: tweet.content,
-        replyContent: draft,
+        replyContent: result.content,
       });
+      logApiUsage(db, "claude-sonnet-4-6", "generateReplyDraft", result.usage);
       drafted++;
       console.log(`下書き作成: @${tweet.username} への返信`);
     } catch {

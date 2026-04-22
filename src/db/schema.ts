@@ -62,9 +62,23 @@ export function initDb(dbPath: string): Database.Database {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT NOT NULL DEFAULT 'anthropic',
+      model TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      cache_read_tokens INTEGER DEFAULT 0,
+      cache_creation_tokens INTEGER DEFAULT 0,
+      estimated_cost_usd REAL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
     CREATE INDEX IF NOT EXISTS idx_posts_scheduled ON posts(scheduled_at);
     CREATE INDEX IF NOT EXISTS idx_reply_drafts_status ON reply_drafts(status);
+    CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(created_at);
   `);
 
   return db;

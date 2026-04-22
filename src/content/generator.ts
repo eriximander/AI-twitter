@@ -6,6 +6,36 @@ const anthropic = new Anthropic({ apiKey: env.anthropic.apiKey });
 
 export type PostType = "tip" | "news" | "story" | "review" | "promo";
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+}
+
+export interface GenerationResult {
+  content: string;
+  usage: TokenUsage;
+}
+
+function extractUsage(response: Anthropic.Message): TokenUsage {
+  const u = response.usage as unknown as Record<string, number>;
+  return {
+    inputTokens: u.input_tokens ?? 0,
+    outputTokens: u.output_tokens ?? 0,
+    cacheReadTokens: u.cache_read_input_tokens ?? 0,
+    cacheCreationTokens: u.cache_creation_input_tokens ?? 0,
+  };
+}
+
+const cachedSystemPrompt: Anthropic.MessageCreateParams["system"] = [
+  {
+    type: "text" as const,
+    text: defaultPersona.systemPrompt,
+    cache_control: { type: "ephemeral" as const },
+  },
+];
+
 const typeInstructions: Record<PostType, string> = {
   tip: "AIツールの具体的な使い方やtipsを1つ紹介する投稿を書いてください。「やってみたらこうなった」形式で。",
   news: "AI業界の最新ニュースやアップデートについて、自分の見解を添えた投稿を書いてください。",
@@ -17,23 +47,17 @@ const typeInstructions: Record<PostType, string> = {
 export async function generatePost(
   type: PostType,
   context?: string,
-): Promise<string> {
+): Promise<GenerationResult> {
   const instruction = typeInstructions[type];
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 300,
-    system: defaultPersona.systemPrompt,
+    system: cachedSystemPrompt,
     messages: [
       {
         role: "user",
-        content: `${instruction}${context ? `\n\n参考情報: ${context}` : ""}
-
-必ず以下を守ってください:
-- 140文字以内の日本語
-- 外部リンクやURLを絶対に含めない
-- ハッシュタグは0-2個
-- 自然な口語体で`,
+        content: `${instruction}${context ? `\n\n参考情報: ${context}` : ""}\n\n140文字以内の日本語、口語体で。`,
       },
     ],
   });
@@ -42,17 +66,17 @@ export async function generatePost(
   if (!block || block.type !== "text") {
     throw new Error("Unexpected response type");
   }
-  return block.text.trim();
+  return { content: block.text.trim(), usage: extractUsage(message) };
 }
 
 export async function generateReplyDraft(
   targetUsername: string,
   targetContent: string,
-): Promise<string> {
+): Promise<GenerationResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 200,
-    system: defaultPersona.systemPrompt,
+    max_tokens: 150,
+    system: cachedSystemPrompt,
     messages: [
       {
         role: "user",
@@ -61,12 +85,7 @@ export async function generateReplyDraft(
 @${targetUsername} の投稿:
 「${targetContent}」
 
-ルール:
-- 100文字以内
-- 宣伝っぽくしない。純粋な会話として成立させる
-- URLを絶対に含めない
-- 相手の投稿内容に具体的に言及する
-- 共感や有益な補足情報を提供する`,
+100文字以内。宣伝感ゼロ。相手の内容に具体的に言及。`,
       },
     ],
   });
@@ -75,5 +94,7 @@ export async function generateReplyDraft(
   if (!block || block.type !== "text") {
     throw new Error("Unexpected response type");
   }
-  return block.text.trim();
+  return { content: block.text.trim(), usage: extractUsage(message) };
 }
+
+export { anthropic };

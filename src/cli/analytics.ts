@@ -3,10 +3,12 @@ import { updateTweetMetrics, recordDailyStats, getWeeklyReport } from "../twitte
 import { getAffiliateReport } from "../affiliate/links.js";
 import { getMonthlyReport, checkSpecialRateEligibility } from "../affiliate/tracker.js";
 import { checkShadowban } from "../safety/shadowban.js";
+import { initCostTracking, getCostReport, formatCostReport } from "../safety/cost-tracker.js";
 import { env } from "../config/env.js";
 
 async function main() {
   const db = initDb(env.dbPath);
+  initCostTracking(db);
   const command = process.argv[2] ?? "report";
 
   switch (command) {
@@ -47,6 +49,10 @@ async function main() {
       }
       break;
     }
+    case "cost": {
+      console.log(formatCostReport(getCostReport(db)));
+      break;
+    }
     case "special-rate": {
       const eligible = checkSpecialRateEligibility(db);
       if (eligible.length === 0) {
@@ -61,7 +67,7 @@ async function main() {
     }
     default:
       console.error(`無効なコマンド: ${command}`);
-      console.error("使い方: npm run analytics -- [update|report|shadowban|special-rate]");
+      console.error("使い方: npm run analytics -- [update|report|shadowban|cost|special-rate]");
       process.exit(1);
   }
 
